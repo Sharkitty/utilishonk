@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+
+	"utilishonk/util"
 )
 
 type runConfig struct {
@@ -21,15 +21,24 @@ var RunCmd = &cobra.Command{
 	Short: "Run a saved command in the right environment",
 	Long:  "Run a saved command in the right distrobox or in the host, regardless of the current environment",
 	Run: func(cmd *cobra.Command, arg []string) {
-		conf, err := getConfig(os.Getenv("HOME") + "/.config/utilishonk/distrobox/run/" + arg[0] + ".yml")
+		conf, err := util.GetConfig()
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		var distroboxConf util.Module
+		for _, module := range conf.Modules {
+			if module.Name == "distrobox" {
+				distroboxConf = module
+				break
+			}
+		}
+
 		fmt.Println("Running this command:")
-		fmt.Println(conf.command)
+		fmt.Println(distroboxConf.Data["command"])
 
 		fmt.Println("In this environment:")
-		fmt.Println(conf.environmentId)
+		fmt.Println(distroboxConf.Data["environment-id"])
 
 		fmt.Println("From this environment:")
 		id, err := getEnvironmentId()
@@ -53,34 +62,4 @@ func getEnvironmentId() (string, error) {
 	} else {
 		return "host", nil
 	}
-}
-
-func getConfig(path string) (runConfig, error) {
-	// Check if path exists
-	if _, err := os.Stat(path); err != nil {
-		return runConfig{}, errors.New("distrobox run: config doesn't exist")
-	}
-
-	// Check if path points to a yaml file
-	if !(filepath.Ext(path) == ".yml" || filepath.Ext(path) == ".yaml") {
-		return runConfig{}, errors.New("distrobox run: config is not a yaml file")
-	}
-
-	// Read config file
-	f, err := os.ReadFile(path)
-	if err != nil {
-		return runConfig{}, err
-	}
-
-	var conf runConfig
-
-	// Deserialize config file
-	if err := yaml.Unmarshal(f, &conf); err != nil {
-		return runConfig{}, err
-	}
-
-	fmt.Println("Succesfully loaded config:")
-	fmt.Println(conf)
-
-	return conf, nil
 }
